@@ -1,0 +1,232 @@
+---
+title: "Fourth Week: Hypothesis Testing"
+subtitle: "TIMSS Analysis"
+author: "Arefe Abghari"
+date: "`r Sys.time()`"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+---
+
+<div align="center">
+<img  src="images/math.jpg"  align = 'center'>
+</div>
+
+<h1 dir="RTL"> 
+تمرین سری چهارم: چقدر ریاضی بلدیم و چرا؟
+</h1>
+
+<p dir="RTL"> لطفا مقاله زیر را مطالعه بفرمایید. </p>
+<p dir="RTL">
+[چرایی رتبه ضعیف ایران در آزمون تیمز](https://goo.gl/gX8DZc)
+</p>
+
+> <p dir="RTL"> 
+با استفاده از داده های ارزیابی تیمز ۲۰۱۵ ادعاهای زیر را مورد ارزیابی قراردهید.
+برای هر سوال علاوه بر استدلال آماری که در غالب آزمون فرض تعریف می شود از تصویرسازی مناسب باهر دو ابزار
+ggplot2
+و
+highcharter
+استفاده نمایید.
+به دلخواه به هفت گزاره از موارد زیر پاسخ دهید.
+</p>
+
+***
+
+<p dir="RTL">
+۱. میران رضایت معلمان در پیشرفت تحصیلی دانش آموزان موثر است.
+</p>
+
+
+***
+
+<p dir="RTL">
+۲. والدینی که تحصیلات بیشتری دارند دارای فرزندان موفق تری می باشند.
+</p>
+
+
+<p dir="RTL">
+میانگین تحصیلات والدین را به دست اورده ام و برای هر گروه میانگین نمرات را با تست 
+$anova$ 
+سنجیده ام 
+همانطور که معلوم است چون میانگین ها تفاوت قابل توجهی دارند فرض صفر یعنب بی اثر بودن تحصیلات والدین روی موفقیت رد میشود.
+</p>
+
+
+```{r}
+library(readr)
+library(readxl)
+library (tidyr)
+library(dplyr)
+library(ggplot2)
+library(highcharter)
+bcg = read_rds("/Users/arefe/Desktop/Arefe/university/Data Analysis/timms/bcg.rds") # school background
+bsg = read_rds("/Users/arefe/Desktop/Arefe/university/Data Analysis/timms/bsg.rds") # student background
+btg = read_rds("/Users/arefe/Desktop/Arefe/university/Data Analysis/timms/btm.rds") # Teacher background
+bsa = read_rds("/Users/arefe/Desktop/Arefe/university/Data Analysis/timms/bsa.rds") # strudent result
+bst = read_rds("/Users/arefe/Desktop/Arefe/university/Data Analysis/timms/bst.rds") # student-teacher linkage
+bsr = read_rds("/Users/arefe/Desktop/Arefe/university/Data Analysis/timms/bsr.rds") # within-country
+
+cbind(
+bsg%>%
+  select (idstud , mother=bsbg07a , father=bsbg07b) %>%
+  mutate(paredu=(mother+father)/2) , 
+bsa %>%
+  select ( bsmmat01:bsmmat05) %>%
+  mutate(suc=(bsmmat01+bsmmat05+bsmmat02+bsmmat03+bsmmat04)/5)) %>%
+  
+  filter ( mother %in% 1:7 & father %in% 1:7) %>%
+  select (paredu , suc) %>%
+  arrange(paredu) ->students
+
+students %>%
+  group_by(paredu) %>%
+  summarise(success=mean(suc)) ->stat
+
+
+aov( success~ paredu, data = stat) -> fit
+fit
+
+summary.aov(fit)
+students$suc = as.double(students$suc)
+students$paredu = as.double(students$paredu)
+students %>%
+  ggplot(aes(x = suc, group=paredu, fill=paredu)) +
+  geom_density(alpha = 0.3) +xlab("Math score") +ggtitle("Score vs mean of highest parents education")
+
+  
+
+
+
+
+
+
+```
+
+***
+
+<p dir="RTL">
+۳. امکانات رفاهی در خانه موجب پیشرفت تحصیلی می گردد.
+</p>
+
+***
+
+<p dir="RTL">
+۴. محیط آرام مدرسه نقش مهمی در پیشرفت تحصیلی دارد.
+</p>
+
+***
+
+<p dir="RTL">
+۵. معلمان با تحصیلات  بالاتر یا تجربه بیشتر دانش آموزان موفق تری تربیت می کنند.
+</p>
+
+***
+
+<p dir="RTL"> 
+۶. پسران در کاربرد هندسه قوی تر هستند.
+</p>
+<p dir="RTL"> 
+از تی تست استفاده کرده ام و چون مقدار 
+$p-value$
+کم تر از ۰.۰۵ نیست اید فرض صفر که میانگین این دو گروه با هم برابر است رد نمی شود
+</p>
+
+```{r}
+
+
+tims = read_rds("/Users/arefe/Desktop/Arefe/university/Data Analysis/timms/timss_2015.rds")
+tims %>%
+  filter (cognitive_domain=="Applying" & content_domain=="Geometry" ) %>%
+  select(female = correct_ratio_per_question_female,
+                  male = correct_ratio_per_question_male) %>%
+  tidyr::gather("female","male", key = "gender",value = "score") -> dscore
+  
+dscore %>% group_by(gender) %>% summarise(mean = mean(score) %>% round(3)) %>%
+  hchart("column",hcaes(x = gender,y = mean), name = "score") %>% 
+  hc_size(height = 300,width = 600) %>% hc_add_theme(hc_theme_ffx())
+
+hypo = t.test(score~gender, data = dscore)
+print(hypo)
+
+ggplot(dscore,aes(x = score,fill = gender)) +
+  geom_density(alpha= 0.4)
+
+
+
+
+
+```
+
+***
+
+<p dir="RTL"> 
+۷. تغذیه دانش آموزان نقش اساسی در یادگیری آنها دارد. 
+</p>
+
+***
+
+<p dir="RTL"> 
+۸. مدارس با امکانات بیشتر دارای عملکرد بهتری می باشند.
+</p>
+
+***
+
+<p dir="RTL"> 
+۹. علت افت تحصیلی عدم مشارکت در کلاس است.
+</p>
+
+***
+
+<p dir="RTL"> 
+۱۰. دانش آموزان ایرانی در استدلال قوی تر از کاربرد هستند.
+</p>
+
+<h4 dir="RTL"> 
+پاسخ
+</h4>
+<p dir="RTL"> 
+به وسیله تی تست این موضوع را ازمایش کرده ام و به نظر میرسد که این ادعا درست نیست 
+</p>
+
+```{r}
+library(readr)
+library(readxl)
+library (tidyr)
+library(dplyr)
+library(ggplot2)
+library(highcharter)
+tims = read_rds("/Users/arefe/Desktop/Arefe/university/Data Analysis/timms/timss_2015.rds")
+
+
+
+tims%>%
+  filter(Country=="Iran, Islamic Rep. of") %>%
+  filter (cognitive_domain=="Reasoning" | cognitive_domain=="Applying") %>%
+  select (cognitive_domain , score=correct_ratio_per_question)->iran
+
+
+hypo = t.test(score ~ cognitive_domain , data = iran , alt="greater")
+
+print(hypo)
+
+iran %>%
+  group_by(cognitive_domain) %>% summarise(mean = mean(score) %>% round(3)) %>%
+  hchart("column",hcaes(x = cognitive_domain,y = mean), name = "score") %>% 
+  hc_size(height = 300,width = 600) %>% hc_add_theme(hc_theme_ffx())
+
+ggplot(iran,aes(x = score,fill = cognitive_domain)) +
+  geom_density(alpha= 0.4)
+
+
+
+
+
+
+```
+***
+
+<p dir="RTL">
+سه گزاره جالب کشف کنید و ادعای خود را ثابت نمایید.
+</p>
